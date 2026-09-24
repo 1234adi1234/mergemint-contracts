@@ -276,3 +276,18 @@ mod tests {
         assert_eq!(page.bounties.len(), 5);
     }
 }
+
+/// `GET /bounties/{id}`
+pub async fn get_bounty_route(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<Bounty>, (StatusCode, Json<serde_json::Value>)> {
+    if let Some(bounty) = crate::db::get_bounty(&state.db, &id) {
+        Ok(Json(bounty))
+    } else {
+        Err((
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": "bounty not found" })),
+        ))
+    }
+}
