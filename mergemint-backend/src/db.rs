@@ -237,6 +237,11 @@ pub fn read_idempotency(
 ) -> std::sync::RwLockReadGuard<'_, IdempotencyStore> {
     store.read().unwrap_or_else(|e| e.into_inner())
 }
+/// Get a single bounty by id
+pub fn get_bounty(db: &SharedDb, id: &str) -> Option<Bounty> {
+    let guard = read_db(db);
+    guard.bounties.iter().find(|b| b.id == id).cloned()
+}
 
 #[cfg(test)]
 mod tests {
@@ -347,13 +352,4 @@ mod tests {
         close_db(&db);
         assert_eq!(ping_db(&db), Err("database connection is closed"));
     }
-}
-
-/// Get a single bounty by id
-pub fn get_bounty(
-    db: &SharedDb,
-    id: &str,
-) -> Option<Bounty> {
-    let guard = read_db(db);
-    guard.bounties.iter().find(|b| b.id == id).cloned()
 }

@@ -69,7 +69,9 @@ mod rate_limit;
 mod routes;
 
 use db::{new_shared_db, new_shared_idempotency_store};
-use routes::bounties::{get_bounty_route, bounty_stream, claim_bounty, list_bounties, list_bounties_by_assignee};
+use routes::bounties::{
+    bounty_stream, claim_bounty, get_bounty_route, list_bounties, list_bounties_by_assignee,
+};
 use routes::tx::{new_shared_rate_limiter, resolve_dispute, self_claim, AppState};
 
 /// Maximum allowed request body size (1 MiB).
