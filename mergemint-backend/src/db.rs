@@ -50,6 +50,8 @@ pub struct DbStore {
     /// stores the flat id -> JSON blobs used by the dispute/self-claim
     /// flows) since it has its own queryable shape.
     pub bounties: Vec<Bounty>,
+    /// Tracks whether the database connection pool is open/healthy (#870).
+    pub is_closed: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -162,6 +164,26 @@ pub fn acquire_db(db: &SharedDb) -> std::sync::RwLockWriteGuard<'_, DbStore> {
 /// Acquire the database read lock, recovering gracefully from lock poison.
 pub fn read_db(db: &SharedDb) -> std::sync::RwLockReadGuard<'_, DbStore> {
     db.read().unwrap_or_else(|e| e.into_inner())
+}
+
+/// Ping the database connection (#870).
+///
+/// Returns `Ok(())` if the database is open and reachable, or `Err("database connection is closed")`
+/// if the database has been closed or disconnected.
+pub fn ping_db(db: &SharedDb) -> Result<(), &'static str> {
+    let guard = read_db(db);
+    if guard.is_closed {
+        Err("database connection is closed")
+    } else {
+        Ok(())
+    }
+}
+
+/// Mark the database connection pool as closed (simulates database downtime/disconnection, #870).
+#[allow(dead_code)]
+pub fn close_db(db: &SharedDb) {
+    let mut guard = acquire_db(db);
+    guard.is_closed = true;
 }
 
 // ---------------------------------------------------------------------------
@@ -315,6 +337,15 @@ mod tests {
 
         let guard = acquire_idempotency(&store);
         assert!(guard.entries.is_empty(), "recovered store should be intact");
+    }
+
+    #[test]
+    fn test_ping_db_healthy_and_closed() {
+        let db = new_shared_db();
+        assert!(ping_db(&db).is_ok());
+
+        close_db(&db);
+        assert_eq!(ping_db(&db), Err("database connection is closed"));
     }
 }
 
