@@ -151,6 +151,7 @@ async fn main() {
         .route("/health", get(health))
         .route("/tx/resolve-dispute", post(resolve_dispute))
         .route("/tx/self-claim", post(self_claim))
+        .route("/admin/audit-logs", get(query_audit_logs))
         .route("/bounties", get(list_bounties))
         .route("/bounties/:id", get(get_bounty_route))
         .route(

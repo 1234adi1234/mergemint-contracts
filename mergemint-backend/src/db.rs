@@ -39,6 +39,8 @@ use std::sync::{Arc, RwLock};
 // instead of only surfacing as a slow query in production.
 #[cfg(test)]
 const BOUNTIES_INDEX_MIGRATION: &str = include_str!("../migrations/0001_add_bounties_indexes.sql");
+#[cfg(test)]
+const AUDIT_LOGS_MIGRATION: &str = include_str!("../migrations/0002_create_audit_logs_table.sql");
 
 /// Lightweight in-memory store used during development / integration tests.
 /// Production deployments replace this with a real database pool.
@@ -50,6 +52,37 @@ pub struct DbStore {
     /// stores the flat id -> JSON blobs used by the dispute/self-claim
     /// flows) since it has its own queryable shape.
     pub bounties: Vec<Bounty>,
+    /// Audit log entries tracking administrative actions like resolve_dispute.
+    pub audit_logs: Vec<AuditLog>,
+}
+
+// ---------------------------------------------------------------------------
+// Audit Logging
+// ---------------------------------------------------------------------------
+
+/// An audit log entry recording an administrative action (e.g., resolve_dispute).
+///
+/// Fields match the database schema defined in migrations/0002_create_audit_logs_table.sql.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuditLog {
+    pub id: Option<i64>,
+    pub actor: String,
+    pub action: String,
+    pub target: String,
+    pub timestamp: u64,
+}
+
+impl AuditLog {
+    /// Create a new audit log entry with the given fields.
+    pub fn new(actor: String, action: String, target: String, timestamp: u64) -> Self {
+        AuditLog {
+            id: None,
+            actor,
+            action,
+            target,
+            timestamp,
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -135,6 +168,43 @@ fn paginate(mut bounties: Vec<Bounty>, limit: i64) -> BountyPage {
         bounties,
         next_cursor,
     }
+}
+
+// ---------------------------------------------------------------------------
+// Audit log queries
+// ---------------------------------------------------------------------------
+
+/// Query audit logs, optionally filtering by actor, action, or target.
+/// Results are sorted by timestamp descending (newest first).
+pub fn query_audit_logs(
+    db: &SharedDb,
+    actor: Option<&str>,
+    action: Option<&str>,
+    target: Option<&str>,
+    limit: i64,
+) -> Vec<AuditLog> {
+    let guard = read_db(db);
+    let mut logs: Vec<AuditLog> = guard
+        .audit_logs
+        .iter()
+        .filter(|log| actor.is_none_or(|a| log.actor == a))
+        .filter(|log| action.is_none_or(|a| log.action == a))
+        .filter(|log| target.is_none_or(|t| log.target == t))
+        .cloned()
+        .collect();
+    
+    // Sort by timestamp descending (newest first)
+    logs.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+    
+    let limit = usize::try_from(limit).unwrap_or(usize::MAX);
+    logs.truncate(limit);
+    logs
+}
+
+/// Add an audit log entry to the store.
+pub fn write_audit_log(db: &SharedDb, log: AuditLog) {
+    let mut guard = acquire_db(db);
+    guard.audit_logs.push(log);
 }
 
 /// Shared, thread-safe handle to the database store.
