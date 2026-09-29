@@ -26,6 +26,8 @@ import {
   FeeBumpRetryOptions,
   MergeMintSdkError,
   RetryOptions,
+  MutationOptions,
+  SimulateResult,
 } from "./types";
 
 import { parseSimulationError, TransactionFailedError } from "./errors";
@@ -357,7 +359,7 @@ export class MergeMintSDK {
   /**
    * Builds a `create_bounty` transaction. The transaction is simulated and
    * assembled but **not** signed or submitted — sign the returned XDR and submit
-   * it yourself.
+   * it yourself. Pass `options.simulate: true` to return the fee and footprint instead.
    *
    * @param params - Bounty definition; see {@link CreateBountyParams}.
    * @param sourceAccount - Address that funds and signs the transaction.
@@ -367,8 +369,9 @@ export class MergeMintSDK {
    */
   async createBounty(
     params: CreateBountyParams,
-    sourceAccount: string
-  ): Promise<string> {
+    sourceAccount: string,
+    options?: MutationOptions
+  ): Promise<string | SimulateResult> {
     const args = [
       addressToScVal(params.creator),
       symbolToScVal(params.title),
@@ -383,12 +386,12 @@ export class MergeMintSDK {
       u32ToScVal(params.approvalThreshold ?? 1),
       milestonesToScVal(params.milestones ?? []),
     ];
-    return this.buildTransaction("create_bounty", args, sourceAccount);
+    return this.buildTransaction("create_bounty", args, sourceAccount, options);
   }
 
   /**
    * Builds a `claim_bounty` transaction assigning a contributor to an open
-   * bounty. Not signed or submitted.
+   * bounty. Not signed or submitted. Pass `options.simulate: true` to return the fee and footprint.
    *
    * @param contributor - Address of the claiming contributor.
    * @param bountyId - Bounty id as a hex-encoded `BytesN<32>` string.
@@ -399,15 +402,16 @@ export class MergeMintSDK {
   async claimBounty(
     contributor: string,
     bountyId: string,
-    sourceAccount: string
-  ): Promise<string> {
+    sourceAccount: string,
+    options?: MutationOptions
+  ): Promise<string | SimulateResult> {
     const args = [addressToScVal(contributor), hexToBytesN(bountyId)];
-    return this.buildTransaction("claim_bounty", args, sourceAccount);
+    return this.buildTransaction("claim_bounty", args, sourceAccount, options);
   }
 
   /**
    * Builds a `complete_bounty` transaction, which distributes the reward to the
-   * assignees by basis-point share. Not signed or submitted.
+   * assignees by basis-point share. Not signed or submitted. Pass `options.simulate: true` to return fee and footprint.
    *
    * @param verifier - Address attesting that the work is complete.
    * @param bountyId - Bounty id as a hex-encoded `BytesN<32>` string.
@@ -418,15 +422,16 @@ export class MergeMintSDK {
   async completeBounty(
     verifier: string,
     bountyId: string,
-    sourceAccount: string
-  ): Promise<string> {
+    sourceAccount: string,
+    options?: MutationOptions
+  ): Promise<string | SimulateResult> {
     const args = [addressToScVal(verifier), hexToBytesN(bountyId)];
-    return this.buildTransaction("complete_bounty", args, sourceAccount);
+    return this.buildTransaction("complete_bounty", args, sourceAccount, options);
   }
 
   /**
    * Builds an `approve_completion` transaction recording one verifier approval
-   * toward the bounty's `approvalThreshold`. Not signed or submitted.
+   * toward the bounty's `approvalThreshold`. Not signed or submitted. Pass `options.simulate: true` to return fee and footprint.
    *
    * @param verifier - Address casting the approval.
    * @param bountyId - Bounty id as a hex-encoded `BytesN<32>` string.
@@ -437,15 +442,16 @@ export class MergeMintSDK {
   async approveCompletion(
     verifier: string,
     bountyId: string,
-    sourceAccount: string
-  ): Promise<string> {
+    sourceAccount: string,
+    options?: MutationOptions
+  ): Promise<string | SimulateResult> {
     const args = [addressToScVal(verifier), hexToBytesN(bountyId)];
-    return this.buildTransaction("approve_completion", args, sourceAccount);
+    return this.buildTransaction("approve_completion", args, sourceAccount, options);
   }
 
   /**
    * Builds a `resolve_dispute` transaction settling a disputed bounty. Not
-   * signed or submitted.
+   * signed or submitted. Pass `options.simulate: true` to return fee and footprint.
    *
    * @param arbitrator - Address authorised to resolve the dispute.
    * @param bountyId - Bounty id as a hex-encoded `BytesN<32>` string.
@@ -459,14 +465,15 @@ export class MergeMintSDK {
     arbitrator: string,
     bountyId: string,
     resolution: "complete" | "cancel",
-    sourceAccount: string
-  ): Promise<string> {
+    sourceAccount: string,
+    options?: MutationOptions
+  ): Promise<string | SimulateResult> {
     const args = [
       addressToScVal(arbitrator),
       hexToBytesN(bountyId),
       symbolToScVal(resolution),
     ];
-    return this.buildTransaction("resolve_dispute", args, sourceAccount);
+    return this.buildTransaction("resolve_dispute", args, sourceAccount, options);
   }
 
   // === #920 New lifecycle entrypoints
@@ -731,8 +738,9 @@ export class MergeMintSDK {
   private async buildTransaction(
     method: string,
     args: xdr.ScVal[],
-    sourceAccount: string
-  ): Promise<string> {
+    sourceAccount: string,
+    options?: MutationOptions
+  ): Promise<string | SimulateResult> {
     const account = await this.withRetry(() =>
       this.rpc.getAccount(sourceAccount)
     );
@@ -749,9 +757,27 @@ export class MergeMintSDK {
       throw parseSimulationError(sim.error ?? "Simulation failed");
     }
 
+    const simResponse = sim as SorobanRpc.Api.SimulateTransactionSuccessResponse;
+
+    if (options?.simulate) {
+      const resourceFee = BigInt(simResponse.resultMetaXdr ?
+        SorobanRpc.parseRawSimulation(simResponse).result?.v3?.resourceFee ?? 0 : 0);
+      const footprint = simResponse.resultMetaXdr ?
+        (SorobanRpc.parseRawSimulation(simResponse).result?.v3?.ext?.sorobanResources?.footprint ?? {}) : {};
+
+      return {
+        resourceFee,
+        footprint: {
+          cpu: footprint.readOnly?.length ? BigInt(footprint.readOnly.length) : 0n,
+          mem: footprint.readWrite?.length ? BigInt(footprint.readWrite.length) : 0n,
+          ops: footprint,
+        },
+      };
+    }
+
     const prepared = SorobanRpc.assembleTransaction(
       tx,
-      sim as SorobanRpc.Api.SimulateTransactionSuccessResponse
+      simResponse
     ).build();
 
     return prepared.toXDR();
