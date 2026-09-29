@@ -58,7 +58,7 @@ function BountyDetailInner() {
 
   if (loading && !bounty) return <BountyDetailSkeleton />;
   if (error && !bounty) return <p role="alert">{error}</p>;
-  if (!bounty) return <p>Loading...</p>;
+  if (!bounty) return <p>{t('loading')}</p>;
 
   const isCreator = Boolean(
     address && bounty.creator && address.toLowerCase() === bounty.creator.toLowerCase()
@@ -77,7 +77,7 @@ function BountyDetailInner() {
       </div>
       {error && <p role="alert">{error}</p>}
       <button onClick={handleClaim} disabled={claiming || bounty.status !== 'open'}>
-        {claiming ? 'Claiming...' : 'Claim Bounty'}
+        {claiming ? t('claiming') : t('claim_bounty')}
       </button>
       {isCreator && bounty.status === 'open' && (
         <button
