@@ -76,6 +76,7 @@ function BountyDetailInner() {
         <strong>Creator:</strong> {bounty.creator}
       </div>
       {error && <p role="alert">{error}</p>}
+      <MilestoneTracker milestones={bounty.milestones} totalReward={bounty.reward} />
       <button onClick={handleClaim} disabled={claiming || bounty.status !== 'open'}>
         {claiming ? t('claiming') : t('claim_bounty')}
       </button>
