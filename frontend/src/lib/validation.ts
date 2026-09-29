@@ -1,3 +1,5 @@
+// On-chain title/description/metadata fields are stored as Soroban Symbols,
+// which cap out at 32 characters.
 export const SYMBOL_MAX_LENGTH = 32;
 
 export const REWARD_AMOUNT_REGEX = /^\d+(\.\d{1,7})?$/;
