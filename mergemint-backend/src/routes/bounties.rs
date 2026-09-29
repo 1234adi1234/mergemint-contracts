@@ -117,7 +117,10 @@ pub async fn bounty_stream(
         })
     });
 
-    Sse::new(stream).keep_alive(KeepAlive::default())
+    Sse::new(stream).keep_alive(
+        KeepAlive::new()
+            .interval(state.sse_keep_alive_duration)
+    )
 }
 
 /// `POST /bounties/{id}/claim`
