@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { Suspense, useEffect, lazy } from 'react';
 import { BrowserRouter, Link, Route, Routes, useLocation } from 'react-router-dom';
 import { WalletProvider, useWallet } from './lib/WalletContext';
 import { WalletConnectButton } from './components/WalletConnectButton';
