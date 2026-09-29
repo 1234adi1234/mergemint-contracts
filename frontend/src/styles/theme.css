@@ -53,7 +53,7 @@
   }
 }
 
-/* BountyCard.tsx */
+/* BountyCard.tsx & BountyCardSkeleton.tsx */
 .bounty-card {
   background: var(--mm-bg);
   color: var(--mm-fg);
@@ -74,6 +74,55 @@
 .bounty-card__status {
   color: var(--mm-accent);
 }
+
+.bounty-card--loading {
+  pointer-events: none;
+  cursor: default;
+}
+
+@keyframes bounty-skeleton-pulse {
+  0% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.5;
+  }
+}
+
+.bounty-card__skeleton-line {
+  display: block;
+  height: 14px;
+  border-radius: 4px;
+  background-color: var(--mm-border, #e2e2e2);
+  animation: bounty-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.bounty-card__id.bounty-card__skeleton-line {
+  width: 45%;
+}
+
+.bounty-card__creator.bounty-card__skeleton-line {
+  width: 60%;
+}
+
+.bounty-card__reward.bounty-card__skeleton-line {
+  width: 35%;
+}
+
+.bounty-card__status.bounty-card__skeleton-line {
+  width: 25%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bounty-card__skeleton-line {
+    animation: none;
+    opacity: 0.75;
+  }
+}
+
 
 /* CreateBounty.tsx (frontend/src/components) */
 .create-bounty {

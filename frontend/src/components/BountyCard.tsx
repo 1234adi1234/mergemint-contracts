@@ -2,6 +2,7 @@ import { Bounty } from "../lib/types";
 import { Bounty as ApiBounty } from "../types";
 import { shortenAddress } from "../utils/format";
 import { CopyButton } from "./CopyButton";
+import { BountyCardSkeleton } from "./BountyCardSkeleton";
 
 interface BountyCardProps {
   bounty?: Bounty | ApiBounty;

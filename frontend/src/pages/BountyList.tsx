@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { Bounty, BountyStatus } from '../types';
 import { BountyCard } from '../components/BountyCard';
+import { BountyCardSkeleton } from '../components/BountyCardSkeleton';
 import { useWallet } from '../lib/WalletContext';
 import { mapErrorMessage } from '../utils/format';
 import { useBountyStream } from '../hooks/useBountyStream';
@@ -10,6 +11,12 @@ const STATUSES: Array<BountyStatus | 'all'> = ['all', 'open', 'claimed', 'disput
 
 type OwnershipFilter = 'all' | 'created' | 'assigned';
 
+/**
+ * Page component displaying filtered bounty cards with pagination, status filters,
+ * ownership toggles, and skeleton placeholders during loading states.
+ *
+ * @returns BountyList page element.
+ */
 export function BountyList() {
   const { address } = useWallet();
   const [status, setStatus] = useState<BountyStatus | 'all'>('all');
@@ -59,8 +66,7 @@ export function BountyList() {
 
   useEffect(() => {
     fetchPage();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, ownership, address]);
+  }, [fetchPage]);
 
   return (
     <div>
